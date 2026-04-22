@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # jobby
 
 A new Flutter project.
@@ -15,3 +16,7 @@ A few resources to get you started if this is your first Flutter project:
 For help getting started with Flutter development, view the
 [online documentation](https://docs.flutter.dev/), which offers tutorials,
 samples, guidance on mobile development, and a full API reference.
+=======
+# Jobby
+Resume Analyser Flutter Mobile Application
+>>>>>>> 1648038316c1a83cf20e81a27a6d96b868fef430
