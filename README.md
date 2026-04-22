@@ -1,22 +1,23 @@
-<<<<<<< HEAD
-# jobby
+# Jobby
 
-A new Flutter project.
+Resume Analyzer & Job Matcher built using Flutter.
+
+## Features
+- Upload PDF resumes
+- Extract skills and candidate information
+- Match resumes with job roles
+- Calculate match percentage
+- Recruiter dashboard for comparing candidates
+- Analytics and visualization
+
+## Tech Stack
+- Flutter (UI)
+- Dart (Logic)
+- PDF parsing
+- Data analysis & visualization
 
 ## Getting Started
 
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
-=======
-# Jobby
-Resume Analyser Flutter Mobile Application
->>>>>>> 1648038316c1a83cf20e81a27a6d96b868fef430
+```bash
+flutter pub get
+flutter run
