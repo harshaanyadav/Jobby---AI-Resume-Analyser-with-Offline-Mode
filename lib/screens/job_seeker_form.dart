@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import '../widgets/app_banner.dart';
 import '../theme/app_theme.dart';
-import '../services/resume_parser.dart';
+import '../services/resume_analysis_service.dart';
 import '../services/analysis_service.dart';
-import '../models/job_roles.dart';
+import '../services/job_role_service.dart';
+import '../services/user_session.dart';
 import 'results_screen.dart';
 
 class JobSeekerFormScreen extends StatefulWidget {
@@ -18,10 +19,18 @@ class _JobSeekerFormScreenState extends State<JobSeekerFormScreen> {
   final _nameController = TextEditingController();
   final _ageController = TextEditingController();
   String _gender = 'Male';
-  String _selectedRole = JobRoles.roleNames.first;
+  late String _selectedRole;
   String? _resumeFileName;
   PlatformFile? _resumeFile;
   bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedRole = JobRoleService.instance.roleNames.isNotEmpty
+        ? JobRoleService.instance.roleNames.first
+        : '';
+  }
 
   Future<void> _pickFile() async {
     final result = await FilePicker.platform.pickFiles(
@@ -58,13 +67,28 @@ class _JobSeekerFormScreenState extends State<JobSeekerFormScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final parser = ResumeParser();
-      final data = await parser.parse(_resumeFile!.bytes!);
-      final roleMatches = AnalysisService.getAllRoleMatches(data.skills);
+      final isPremium = UserSession.instance.isPremium;
+
+      final analysis = await ResumeAnalysisService.instance.parseResume(
+        _resumeFile!.bytes!,
+        isPremium: isPremium,
+      );
+
+      final skills = analysis.allSkills;
+      final roleMatches = AnalysisService.getAllRoleMatches(skills);
       final readiness = AnalysisService.calculateReadiness(
-        data.experience,
-        data.certifications,
-        data.skills,
+        analysis.experienceSummary.isEmpty
+            ? 'No experience details found'
+            : analysis.experienceSummary,
+        analysis.certifications.isEmpty
+            ? 'No certifications found'
+            : analysis.certifications.join(', '),
+        skills,
+      );
+
+      final review = await ResumeAnalysisService.instance.reviewResume(
+        analysis,
+        isPremium: isPremium,
       );
 
       if (!mounted) return;
@@ -76,17 +100,19 @@ class _JobSeekerFormScreenState extends State<JobSeekerFormScreen> {
             name: _nameController.text.trim(),
             age: int.parse(_ageController.text.trim()),
             gender: _gender,
-            resumeData: data,
+            analysis: analysis,
+            review: review,
             roleMatches: roleMatches,
             readinessScore: readiness,
             selectedRole: _selectedRole,
+            isPremium: isPremium,
           ),
         ),
       );
     } catch (e) {
-      _showError('Failed to parse resume. Make sure it is a valid PDF.\n$e');
+      _showError('Failed to analyze resume. Make sure it is a valid PDF.\n$e');
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -223,10 +249,8 @@ class _JobSeekerFormScreenState extends State<JobSeekerFormScreen> {
               children: [
                 Radio<String>(
                   value: g,
-                  // ignore: deprecated_member_use
                   groupValue: _gender,
                   activeColor: AppTheme.green,
-                  // ignore: deprecated_member_use
                   onChanged: (v) => setState(() => _gender = v!),
                 ),
                 Text(g),
@@ -241,13 +265,13 @@ class _JobSeekerFormScreenState extends State<JobSeekerFormScreen> {
 
   Widget _buildDropdown() {
     return DropdownButtonFormField<String>(
-      initialValue: _selectedRole,
+      initialValue: _selectedRole.isEmpty ? null : _selectedRole,
       decoration: InputDecoration(
         labelText: 'Target Job Role',
         prefixIcon: const Icon(Icons.work, color: AppTheme.green),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
       ),
-      items: JobRoles.roleNames
+      items: JobRoleService.instance.roleNames
           .map((r) => DropdownMenuItem(value: r, child: Text(r)))
           .toList(),
       onChanged: (v) => setState(() => _selectedRole = v!),

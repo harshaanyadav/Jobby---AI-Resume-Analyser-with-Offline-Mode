@@ -1,1 +1,13 @@
-flutter/ephemeral
+# Environment files
+.env
+
+# Build folders
+build/
+android/build/
+ios/build/
+
+# Flutter
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.flutter-ephemeral/

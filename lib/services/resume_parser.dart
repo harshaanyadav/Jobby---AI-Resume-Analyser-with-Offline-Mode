@@ -1,7 +1,11 @@
 import 'dart:typed_data';
-import 'package:syncfusion_flutter_pdf/pdf.dart';
 import '../models/resume_data.dart';
+import 'pdf_service.dart';
 
+/// Existing lightweight keyword-based resume parser.
+/// Used by KeywordAnalysisEngine (free tier). Unchanged in behavior —
+/// only the raw PDF text extraction was moved into PdfService so it can
+/// be shared with the AI engine as well.
 class ResumeParser {
   static const List<String> _skillKeywords = [
     "Python",
@@ -129,7 +133,6 @@ class ResumeParser {
     "HubSpot",
     "CRM",
     "Negotiation",
-    "Kubernetes",
     "Feature Engineering",
     "Model Deployment",
     "Dimensionality Reduction",
@@ -154,37 +157,24 @@ class ResumeParser {
   ];
 
   Future<ResumeData> parse(Uint8List bytes) async {
-    final document = PdfDocument(inputBytes: bytes);
-    final extractor = PdfTextExtractor(document);
-    String text = '';
-
-    for (int i = 0; i < document.pages.count; i++) {
-      text += '${extractor.extractText(startPageIndex: i, endPageIndex: i)}\n';
-    }
-    document.dispose();
-
+    final text = await PdfService.extractText(bytes);
     return _parseText(text);
   }
 
   ResumeData _parseText(String text) {
     final lower = text.toLowerCase();
 
-    // Email
     final emailRegex = RegExp(
       r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}',
     );
     final emailMatch = emailRegex.firstMatch(text);
 
-    // Phone
     final phoneRegex = RegExp(r'\b\d{10}\b');
     final phoneMatch = phoneRegex.firstMatch(text);
 
-    // Skills
-    final skills = _skillKeywords
-        .where((s) => lower.contains(s.toLowerCase()))
-        .toList();
+    final skills =
+        _skillKeywords.where((s) => lower.contains(s.toLowerCase())).toList();
 
-    // Degree
     String degree = 'Not found';
     if (text.contains('B.Tech') || lower.contains('bachelor')) {
       degree = "Bachelor's Degree";
@@ -194,7 +184,6 @@ class ResumeParser {
       degree = "Doctorate";
     }
 
-    // Certifications
     String certifications = 'No certifications found';
     for (final kw in _certKeywords) {
       final idx = lower.indexOf(kw.toLowerCase());
@@ -205,7 +194,6 @@ class ResumeParser {
       }
     }
 
-    // Experience
     String experience = 'No experience details found';
     for (final kw in _expKeywords) {
       final idx = lower.indexOf(kw.toLowerCase());
@@ -216,7 +204,6 @@ class ResumeParser {
       }
     }
 
-    // LinkedIn
     final linkedInRegex = RegExp(r'https?://[^\s]*linkedin\.com[^\s]*');
     final linkedInMatch = linkedInRegex.firstMatch(text);
 

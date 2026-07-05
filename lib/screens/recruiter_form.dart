@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import '../widgets/app_banner.dart';
 import '../theme/app_theme.dart';
-import '../models/job_roles.dart';
 import '../models/resume_data.dart';
-import '../services/resume_parser.dart';
-import '../services/analysis_service.dart';
+import '../models/job_description.dart';
+import '../services/resume_analysis_service.dart';
+import '../services/job_role_service.dart';
+import '../services/user_session.dart';
 import 'candidate_comparison.dart';
 
 class RecruiterFormScreen extends StatefulWidget {
@@ -16,11 +17,19 @@ class RecruiterFormScreen extends StatefulWidget {
 }
 
 class _RecruiterFormScreenState extends State<RecruiterFormScreen> {
-  String _selectedRole = JobRoles.roleNames.first;
+  late String _selectedRole;
   bool _useCustomSkills = false;
   final _customSkillsController = TextEditingController();
   final List<PlatformFile> _files = [];
   bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedRole = JobRoleService.instance.roleNames.isNotEmpty
+        ? JobRoleService.instance.roleNames.first
+        : '';
+  }
 
   Future<void> _addFiles() async {
     final result = await FilePicker.platform.pickFiles(
@@ -61,37 +70,53 @@ class _RecruiterFormScreenState extends State<RecruiterFormScreen> {
           .where((s) => s.isNotEmpty)
           .toList();
     } else {
-      benchmarkSkills = JobRoles.roles[_selectedRole] ?? [];
+      benchmarkSkills = JobRoleService.instance.skillsFor(_selectedRole);
     }
+
+    final jobDescription = JobDescription(
+      title: _selectedRole,
+      requiredSkills: benchmarkSkills,
+    );
 
     setState(() => _isLoading = true);
 
-    final parser = ResumeParser();
+    final isPremium = UserSession.instance.isPremium;
+    final service = ResumeAnalysisService.instance;
+
+    final parsedAnalyses =
+        <dynamic>[]; // holds ResumeAnalysis, kept dynamic to avoid extra import churn
     final results = <CandidateResult>[];
 
     for (final file in _files) {
       try {
         if (file.bytes == null) continue;
-        final data = await parser.parse(file.bytes!);
-        final match = AnalysisService.calculateMatch(
-          data.skills,
-          benchmarkSkills,
+        final analysis = await service.parseResume(
+          file.bytes!,
+          isPremium: isPremium,
         );
-        final readiness = AnalysisService.calculateReadiness(
-          data.experience,
-          data.certifications,
-          data.skills,
+        final match = await service.matchResume(
+          analysis,
+          jobDescription,
+          isPremium: isPremium,
         );
+
+        final name = analysis.name.isNotEmpty
+            ? analysis.name
+            : file.name.replaceAll('.pdf', '');
+
+        parsedAnalyses.add(analysis);
         results.add(
           CandidateResult(
-            name: file.name.replaceAll('.pdf', ''),
+            name: name,
             filePath: file.name,
-            matchPercentage: match,
-            skills: data.skills,
-            readinessScore: readiness,
+            matchPercentage: match.matchPercentage,
+            skills: analysis.allSkills,
+            readinessScore: match.matchPercentage,
           ),
         );
-      } catch (_) {}
+      } catch (_) {
+        // Skip files that fail to parse, same behavior as before.
+      }
     }
 
     results.sort((a, b) => b.matchPercentage.compareTo(a.matchPercentage));
@@ -145,7 +170,8 @@ class _RecruiterFormScreenState extends State<RecruiterFormScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           DropdownButtonFormField<String>(
-                            initialValue: _selectedRole,
+                            initialValue:
+                                _selectedRole.isEmpty ? null : _selectedRole,
                             decoration: InputDecoration(
                               labelText: 'Select Job Role',
                               prefixIcon: const Icon(
@@ -156,12 +182,10 @@ class _RecruiterFormScreenState extends State<RecruiterFormScreen> {
                                 borderRadius: BorderRadius.circular(8),
                               ),
                             ),
-                            items: JobRoles.roleNames
+                            items: JobRoleService.instance.roleNames
                                 .map(
                                   (r) => DropdownMenuItem(
-                                    value: r,
-                                    child: Text(r),
-                                  ),
+                                      value: r, child: Text(r)),
                                 )
                                 .toList(),
                             onChanged: (v) =>
@@ -256,10 +280,8 @@ class _RecruiterFormScreenState extends State<RecruiterFormScreen> {
                             children: [
                               OutlinedButton.icon(
                                 onPressed: _addFiles,
-                                icon: const Icon(
-                                  Icons.add,
-                                  color: AppTheme.blue,
-                                ),
+                                icon:
+                                    const Icon(Icons.add, color: AppTheme.blue),
                                 label: const Text(
                                   'Add Resumes',
                                   style: TextStyle(color: AppTheme.blue),

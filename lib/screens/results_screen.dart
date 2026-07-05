@@ -1,29 +1,33 @@
 import 'package:flutter/material.dart';
-import '../models/resume_data.dart';
-import '../models/job_roles.dart';
+import '../models/resume_analysis.dart';
+import '../models/resume_review.dart';
+import '../services/job_role_service.dart';
 import '../services/analysis_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/charts_dashboard.dart';
-// import 'job_seeker_form.dart';
 
 class ResultsScreen extends StatelessWidget {
   final String name;
   final int age;
   final String gender;
-  final ResumeData resumeData;
+  final ResumeAnalysis analysis;
+  final ResumeReview review;
   final Map<String, double> roleMatches;
   final double readinessScore;
   final String selectedRole;
+  final bool isPremium;
 
   const ResultsScreen({
     super.key,
     required this.name,
     required this.age,
     required this.gender,
-    required this.resumeData,
+    required this.analysis,
+    required this.review,
     required this.roleMatches,
     required this.readinessScore,
     required this.selectedRole,
+    required this.isPremium,
   });
 
   @override
@@ -31,18 +35,10 @@ class ResultsScreen extends StatelessWidget {
     final sortedMatches = roleMatches.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
     final top3 = sortedMatches.take(3).toList();
-    final topRole = top3.first.key;
-    final missing = AnalysisService.getMissingSkills(
-      resumeData.skills,
-      topRole,
-    );
-    final benchmark = AnalysisService.getBenchmarkText(
-      resumeData.skills,
-      topRole,
-    );
-    final softSkills = AnalysisService.getSoftSkillsEvaluation(
-      resumeData.experience,
-    );
+    final topRole = top3.isNotEmpty ? top3.first.key : selectedRole;
+    final skills = analysis.allSkills;
+    final missing = AnalysisService.getMissingSkills(skills, topRole);
+    final benchmark = AnalysisService.getBenchmarkText(skills, topRole);
 
     return Scaffold(
       appBar: AppBar(
@@ -58,6 +54,28 @@ class ResultsScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (isPremium)
+              Container(
+                margin: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF8E1),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFFFE082)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.workspace_premium, color: Colors.amber.shade700),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Text(
+                        'This analysis was generated using Premium AI.',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             _SectionCard(
               title: 'Candidate Information',
               child: Column(
@@ -65,13 +83,16 @@ class ResultsScreen extends StatelessWidget {
                   _infoRow('Name', name),
                   _infoRow('Age', '$age'),
                   _infoRow('Gender', gender),
-                  _infoRow('Contact', resumeData.mobileNumber),
-                  _infoRow('Email', resumeData.email),
-                  _infoRow('Degree', resumeData.degree),
+                  _infoRow('Contact',
+                      analysis.phone.isNotEmpty ? analysis.phone : 'Not found'),
+                  _infoRow('Email',
+                      analysis.email.isNotEmpty ? analysis.email : 'Not found'),
                   _infoRow(
-                    'Skills Found',
-                    '${resumeData.skills.length} skills detected',
-                  ),
+                      'Degree',
+                      analysis.degree.isNotEmpty
+                          ? analysis.degree
+                          : 'Not found'),
+                  _infoRow('Skills Found', '${skills.length} skills detected'),
                 ],
               ),
             ),
@@ -86,8 +107,8 @@ class ResultsScreen extends StatelessWidget {
                   Color color = pct > 70
                       ? Colors.green
                       : pct > 50
-                      ? Colors.orange
-                      : Colors.red;
+                          ? Colors.orange
+                          : Colors.red;
                   return Padding(
                     padding: const EdgeInsets.symmetric(vertical: 6),
                     child: Row(
@@ -148,17 +169,48 @@ class ResultsScreen extends StatelessWidget {
                 children: [
                   _analysisRow(
                     'Interview Readiness',
-                    '${readinessScore.toStringAsFixed(0)}%',
+                    review.interviewReadiness.isNotEmpty
+                        ? review.interviewReadiness
+                        : '${readinessScore.toStringAsFixed(0)}%',
                     Icons.star,
                   ),
                   const Divider(),
                   _analysisRow(
-                    'Industry Benchmark',
-                    benchmark,
-                    Icons.bar_chart,
+                      'Industry Benchmark', benchmark, Icons.bar_chart),
+                  const Divider(),
+                  _analysisRow(
+                    'Soft Skills',
+                    analysis.softSkills.isNotEmpty
+                        ? 'Shows strength in ${analysis.softSkills.join(', ')}.'
+                        : AnalysisService.getSoftSkillsEvaluation(
+                            analysis.experienceSummary),
+                    Icons.psychology,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            _SectionCard(
+              title: isPremium ? 'AI Resume Review' : 'Resume Review',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _analysisRow(
+                    'ATS Score',
+                    '${review.ats.atsScore.toStringAsFixed(0)}% — ${review.ats.resumeQuality}',
+                    Icons.verified,
                   ),
                   const Divider(),
-                  _analysisRow('Soft Skills', softSkills, Icons.psychology),
+                  _analysisRow(
+                      'Summary', review.resumeSummary, Icons.description),
+                  const Divider(),
+                  _analysisRow(
+                      'Career Advice', review.careerAdvice, Icons.trending_up),
+                  if (review.hiringRecommendation.isNotEmpty) ...[
+                    const Divider(),
+                    _analysisRow('Hiring Recommendation',
+                        review.hiringRecommendation, Icons.thumb_up),
+                  ],
                 ],
               ),
             ),
@@ -196,13 +248,13 @@ class ResultsScreen extends StatelessWidget {
                 ),
               ),
             const SizedBox(height: 16),
-            if (resumeData.skills.isNotEmpty)
+            if (skills.isNotEmpty)
               _SectionCard(
                 title: 'Detected Skills',
                 child: Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                  children: resumeData.skills
+                  children: skills
                       .map(
                         (s) => Chip(
                           label: Text(s, style: const TextStyle(fontSize: 12)),
@@ -229,8 +281,9 @@ class ResultsScreen extends StatelessWidget {
                           ),
                           body: ChartsDashboard(
                             roleMatches: roleMatches,
-                            candidateSkills: resumeData.skills,
-                            benchmarkSkills: JobRoles.roles[topRole] ?? [],
+                            candidateSkills: skills,
+                            benchmarkSkills:
+                                JobRoleService.instance.skillsFor(topRole),
                             readinessScore: readinessScore,
                           ),
                         ),
@@ -306,7 +359,7 @@ class ResultsScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  value,
+                  value.isNotEmpty ? value : 'Not available.',
                   style: const TextStyle(
                     fontSize: 13,
                     color: AppTheme.textMuted,
