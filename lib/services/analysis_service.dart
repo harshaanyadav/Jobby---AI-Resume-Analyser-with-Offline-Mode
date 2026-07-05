@@ -83,7 +83,16 @@ class AnalysisService {
   /// Builds a lightweight, deterministic "review" for free-tier users so
   /// the results screen can show the same sections both tiers, without
   /// ever calling the network.
-  static ResumeReview buildHeuristicReview(ResumeAnalysis analysis) {
+  ///
+  /// [premiumFailed] should be true when this is being called as a
+  /// FALLBACK after a Premium (AI) call failed — as opposed to a user
+  /// who is simply on the Free tier by choice. This lets the UI show an
+  /// accurate "AI is temporarily unavailable" message instead of a
+  /// misleading "upgrade to Premium" message to a paying user.
+  static ResumeReview buildHeuristicReview(
+    ResumeAnalysis analysis, {
+    bool premiumFailed = false,
+  }) {
     final readiness = calculateReadiness(
       analysis.experienceSummary.isEmpty
           ? 'No experience details found'
@@ -91,6 +100,10 @@ class AnalysisService {
       analysis.certifications.isEmpty ? 'No certifications found' : 'has',
       analysis.allSkills,
     );
+
+    final unavailableReason = premiumFailed
+        ? 'Premium AI is temporarily unavailable right now — showing free-tier analysis instead. Please try again shortly.'
+        : null;
 
     return ResumeReview(
       ats: ATSResult(
@@ -105,13 +118,15 @@ class AnalysisService {
       ),
       resumeSummary: analysis.summary.isNotEmpty
           ? analysis.summary
-          : 'Resume summary unavailable in free tier. Upgrade to Premium for an AI-written summary.',
-      grammarReview:
+          : (unavailableReason ??
+              'Resume summary unavailable in free tier. Upgrade to Premium for an AI-written summary.'),
+      grammarReview: unavailableReason ??
           'Grammar review is a Premium feature. Upgrade to unlock AI-powered writing feedback.',
-      careerAdvice:
+      careerAdvice: unavailableReason ??
           'Personalized career advice is a Premium feature. Upgrade to unlock AI-powered guidance.',
       interviewReadiness: '${readiness.toStringAsFixed(0)}%',
-      projectEvaluation: 'Detailed project evaluation is a Premium feature.',
+      projectEvaluation: unavailableReason ??
+          'Detailed project evaluation is a Premium feature.',
       strengths: analysis.strengths,
       weaknesses: analysis.weaknesses,
       improvementSuggestions: const [],

@@ -7,12 +7,16 @@ class CandidateComparisonScreen extends StatelessWidget {
   final List<CandidateResult> candidates;
   final String jobRole;
   final List<String> benchmarkSkills;
+  final bool isPremium;
+  final bool aiUnavailable;
 
   const CandidateComparisonScreen({
     super.key,
     required this.candidates,
     required this.jobRole,
     required this.benchmarkSkills,
+    this.isPremium = false,
+    this.aiUnavailable = false,
   });
 
   @override
@@ -20,7 +24,7 @@ class CandidateComparisonScreen extends StatelessWidget {
     final avg = candidates.isEmpty
         ? 0.0
         : candidates.map((c) => c.matchPercentage).reduce((a, b) => a + b) /
-              candidates.length;
+            candidates.length;
 
     return Scaffold(
       appBar: AppBar(
@@ -32,6 +36,28 @@ class CandidateComparisonScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (isPremium && aiUnavailable)
+              Container(
+                margin: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFEBEE),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFFFCDD2)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.cloud_off, color: AppTheme.red),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Text(
+                        'Premium AI was temporarily unavailable for one or more candidates. Results below use keyword-matching for those candidates — please try again shortly for full AI ranking.',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             Row(
               children: [
                 _StatCard(
@@ -161,8 +187,8 @@ class CandidateComparisonScreen extends StatelessWidget {
                     final matchColor = c.matchPercentage >= 75
                         ? Colors.green
                         : c.matchPercentage >= 50
-                        ? Colors.orange
-                        : Colors.red;
+                            ? Colors.orange
+                            : Colors.red;
                     final matched = c.skills
                         .map((s) => s.toLowerCase())
                         .toSet()
@@ -177,9 +203,8 @@ class CandidateComparisonScreen extends StatelessWidget {
                         vertical: 12,
                       ),
                       decoration: BoxDecoration(
-                        color: i.isEven
-                            ? Colors.white
-                            : const Color(0xFFF5F5F5),
+                        color:
+                            i.isEven ? Colors.white : const Color(0xFFF5F5F5),
                         borderRadius: i == candidates.length - 1
                             ? const BorderRadius.vertical(
                                 bottom: Radius.circular(12),

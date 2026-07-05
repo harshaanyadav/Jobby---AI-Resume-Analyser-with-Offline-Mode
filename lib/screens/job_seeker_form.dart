@@ -91,6 +91,11 @@ class _JobSeekerFormScreenState extends State<JobSeekerFormScreen> {
         isPremium: isPremium,
       );
 
+      // Read this right after the LAST premium-capable call in the
+      // sequence (reviewResume), so it reflects whether AI actually
+      // succeeded for this run.
+      final aiUnavailable = ResumeAnalysisService.instance.premiumFellBack;
+
       if (!mounted) return;
 
       Navigator.push(
@@ -106,6 +111,7 @@ class _JobSeekerFormScreenState extends State<JobSeekerFormScreen> {
             readinessScore: readiness,
             selectedRole: _selectedRole,
             isPremium: isPremium,
+            aiUnavailable: aiUnavailable,
           ),
         ),
       );

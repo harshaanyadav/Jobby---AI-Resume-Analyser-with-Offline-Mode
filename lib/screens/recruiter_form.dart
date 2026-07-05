@@ -87,6 +87,11 @@ class _RecruiterFormScreenState extends State<RecruiterFormScreen> {
         <dynamic>[]; // holds ResumeAnalysis, kept dynamic to avoid extra import churn
     final results = <CandidateResult>[];
 
+    // True if ANY candidate in this batch had a premium call fall back
+    // to the free engine — used to show an honest banner instead of
+    // silently downgrading quality for the recruiter.
+    bool anyPremiumFellBack = false;
+
     for (final file in _files) {
       try {
         if (file.bytes == null) continue;
@@ -94,11 +99,14 @@ class _RecruiterFormScreenState extends State<RecruiterFormScreen> {
           file.bytes!,
           isPremium: isPremium,
         );
+        if (isPremium && service.premiumFellBack) anyPremiumFellBack = true;
+
         final match = await service.matchResume(
           analysis,
           jobDescription,
           isPremium: isPremium,
         );
+        if (isPremium && service.premiumFellBack) anyPremiumFellBack = true;
 
         final name = analysis.name.isNotEmpty
             ? analysis.name
@@ -130,6 +138,8 @@ class _RecruiterFormScreenState extends State<RecruiterFormScreen> {
           candidates: results,
           jobRole: _selectedRole,
           benchmarkSkills: benchmarkSkills,
+          isPremium: isPremium,
+          aiUnavailable: anyPremiumFellBack,
         ),
       ),
     );
