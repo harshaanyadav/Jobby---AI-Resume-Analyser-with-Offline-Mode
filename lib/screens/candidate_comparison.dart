@@ -1,3 +1,5 @@
+// ignore_for_file: prefer_const_literals_to_create_immutables
+
 import 'package:flutter/material.dart';
 import '../models/resume_data.dart';
 import '../theme/app_theme.dart';
@@ -47,11 +49,33 @@ class CandidateComparisonScreen extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.cloud_off, color: AppTheme.red),
+                    Icon(Icons.error_outline, color: AppTheme.red),
                     const SizedBox(width: 10),
                     const Expanded(
                       child: Text(
-                        'Premium AI was temporarily unavailable for one or more candidates. Results below use keyword-matching for those candidates — please try again shortly for full AI ranking.',
+                        'AI was temporarily unavailable for one or more candidates. Showing fallback matching instead.',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else if (isPremium)
+              Container(
+                margin: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF8E1),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFFFE082)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.workspace_premium, color: Colors.amber.shade700),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Text(
+                        'This comparison was generated using Premium AI.',
                         style: TextStyle(fontWeight: FontWeight.w600),
                       ),
                     ),

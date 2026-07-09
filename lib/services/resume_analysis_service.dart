@@ -9,41 +9,43 @@ import 'keyword_analysis_engine.dart';
 import 'gemini_analysis_engine.dart';
 import 'analysis_service.dart';
 
-/// The ONLY class the UI is allowed to talk to for resume intelligence.
-/// Premium now runs on GeminiAnalysisEngine (free tier). If you ever
-/// want to switch to OpenRouter again, just swap this one line — the
-/// UI and every screen stay untouched either way.
+/// Facade over the two ResumeAnalysisEngine implementations
+/// (KeywordAnalysisEngine / GeminiAnalysisEngine). This is the ONLY
+/// class the UI talks to — it never knows which engine actually ran.
+///
+/// For Premium users, it tries Gemini first. If Gemini throws (network
+/// failure, rate limit, missing API key, bad JSON, etc.) it transparently
+/// falls back to the free keyword engine AND sets [premiumFellBack] = true
+/// so the UI can show an honest "AI temporarily unavailable" banner
+/// instead of silently pretending the free-tier result is a Premium one.
 class ResumeAnalysisService {
   ResumeAnalysisService._();
   static final ResumeAnalysisService instance = ResumeAnalysisService._();
 
-  final ResumeAnalysisEngine _freeEngine = KeywordAnalysisEngine();
-  final ResumeAnalysisEngine _premiumEngine = GeminiAnalysisEngine();
+  final ResumeAnalysisEngine _keywordEngine = KeywordAnalysisEngine();
+  final ResumeAnalysisEngine _geminiEngine = GeminiAnalysisEngine();
 
-  /// True whenever the LAST premium call attempted (parse/match/review/rank)
-  /// failed and silently fell back to the free engine. UI screens should
-  /// read this right after their sequence of calls finishes, and show an
-  /// "AI temporarily unavailable" notice instead of an "upgrade" notice
-  /// when this is true for a Premium user.
+  /// Set by the most recent Premium-tier call. True only when that call
+  /// attempted Gemini and had to fall back — NOT true for Free-tier users,
+  /// since for them there was nothing to "fall back" from.
   bool premiumFellBack = false;
 
   Future<ResumeAnalysis> parseResume(
     Uint8List resumeBytes, {
     required bool isPremium,
   }) async {
-    if (isPremium) {
-      try {
-        final result = await _premiumEngine.parseResume(resumeBytes);
-        premiumFellBack = false;
-        return result;
-      } catch (e) {
-        print('GEMINI PARSE FAILED: $e'); // TEMP DEBUG LINE
-        premiumFellBack = true;
-        return await _freeEngine.parseResume(resumeBytes);
-      }
+    if (!isPremium) {
+      premiumFellBack = false;
+      return _keywordEngine.parseResume(resumeBytes);
     }
-    premiumFellBack = false;
-    return await _freeEngine.parseResume(resumeBytes);
+    try {
+      final result = await _geminiEngine.parseResume(resumeBytes);
+      premiumFellBack = false;
+      return result;
+    } catch (_) {
+      premiumFellBack = true;
+      return _keywordEngine.parseResume(resumeBytes);
+    }
   }
 
   Future<ResumeMatch> matchResume(
@@ -51,39 +53,36 @@ class ResumeAnalysisService {
     JobDescription jobDescription, {
     required bool isPremium,
   }) async {
-    if (isPremium) {
-      try {
-        final result = await _premiumEngine.matchResume(resume, jobDescription);
-        premiumFellBack = false;
-        return result;
-      } catch (e) {
-        print('GEMINI MATCH FAILED: $e'); // TEMP DEBUG LINE
-        premiumFellBack = true;
-        return await _freeEngine.matchResume(resume, jobDescription);
-      }
+    if (!isPremium) {
+      premiumFellBack = false;
+      return _keywordEngine.matchResume(resume, jobDescription);
     }
-    premiumFellBack = false;
-    return await _freeEngine.matchResume(resume, jobDescription);
+    try {
+      final result = await _geminiEngine.matchResume(resume, jobDescription);
+      premiumFellBack = false;
+      return result;
+    } catch (_) {
+      premiumFellBack = true;
+      return _keywordEngine.matchResume(resume, jobDescription);
+    }
   }
 
   Future<ResumeReview> reviewResume(
     ResumeAnalysis resume, {
     required bool isPremium,
   }) async {
-    if (isPremium) {
-      try {
-        final result = await _premiumEngine.reviewResume(resume);
-        premiumFellBack = false;
-        return result;
-      } catch (e) {
-        print('GEMINI REVIEW FAILED: $e'); // TEMP DEBUG LINE
-        premiumFellBack = true;
-        return AnalysisService.buildHeuristicReview(resume,
-            premiumFailed: true);
-      }
+    if (!isPremium) {
+      premiumFellBack = false;
+      return AnalysisService.buildHeuristicReview(resume);
     }
-    premiumFellBack = false;
-    return AnalysisService.buildHeuristicReview(resume, premiumFailed: false);
+    try {
+      final result = await _geminiEngine.reviewResume(resume);
+      premiumFellBack = false;
+      return result;
+    } catch (_) {
+      premiumFellBack = true;
+      return AnalysisService.buildHeuristicReview(resume, premiumFailed: true);
+    }
   }
 
   Future<List<CandidateRanking>> rankCandidates(
@@ -91,19 +90,18 @@ class ResumeAnalysisService {
     JobDescription jobDescription, {
     required bool isPremium,
   }) async {
-    if (isPremium) {
-      try {
-        final result =
-            await _premiumEngine.rankCandidates(candidates, jobDescription);
-        premiumFellBack = false;
-        return result;
-      } catch (e) {
-        print('GEMINI RANKING FAILED: $e'); // TEMP DEBUG LINE
-        premiumFellBack = true;
-        return await _freeEngine.rankCandidates(candidates, jobDescription);
-      }
+    if (!isPremium) {
+      premiumFellBack = false;
+      return _keywordEngine.rankCandidates(candidates, jobDescription);
     }
-    premiumFellBack = false;
-    return await _freeEngine.rankCandidates(candidates, jobDescription);
+    try {
+      final result =
+          await _geminiEngine.rankCandidates(candidates, jobDescription);
+      premiumFellBack = false;
+      return result;
+    } catch (_) {
+      premiumFellBack = true;
+      return _keywordEngine.rankCandidates(candidates, jobDescription);
+    }
   }
 }

@@ -56,7 +56,29 @@ class ResultsScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (isPremium && !aiUnavailable)
+            if (isPremium && aiUnavailable)
+              Container(
+                margin: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFEBEE),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFFFCDD2)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.error_outline, color: AppTheme.red),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Text(
+                        'AI is temporarily unavailable. Showing a fallback analysis instead.',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else if (isPremium)
               Container(
                 margin: const EdgeInsets.only(bottom: 16),
                 padding: const EdgeInsets.all(12),
@@ -72,28 +94,6 @@ class ResultsScreen extends StatelessWidget {
                     const Expanded(
                       child: Text(
                         'This analysis was generated using Premium AI.',
-                        style: TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            if (isPremium && aiUnavailable)
-              Container(
-                margin: const EdgeInsets.only(bottom: 16),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFEBEE),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFFFCDD2)),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.cloud_off, color: AppTheme.red),
-                    const SizedBox(width: 10),
-                    const Expanded(
-                      child: Text(
-                        'Premium AI is temporarily unavailable right now. Showing free-tier analysis instead — please try again shortly.',
                         style: TextStyle(fontWeight: FontWeight.w600),
                       ),
                     ),
@@ -215,9 +215,7 @@ class ResultsScreen extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             _SectionCard(
-              title: isPremium && !aiUnavailable
-                  ? 'AI Resume Review'
-                  : 'Resume Review',
+              title: isPremium ? 'AI Resume Review' : 'Resume Review',
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

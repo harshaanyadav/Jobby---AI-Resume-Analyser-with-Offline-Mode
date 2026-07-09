@@ -7,8 +7,6 @@ import 'services/job_role_service.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Load OpenRouter key + config. Missing .env is tolerated so the app
-  // still runs in Free mode if a developer forgot to set it up.
   try {
     await dotenv.load(fileName: '.env');
   } catch (_) {

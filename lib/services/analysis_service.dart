@@ -1,13 +1,11 @@
-import '../models/job_roles.dart';
 import '../models/resume_analysis.dart';
 import '../models/resume_review.dart';
 import '../models/ats_result.dart';
+import 'job_role_service.dart';
 
-/// Existing keyword-matching logic. Unchanged behavior for free tier.
-/// Added two small heuristic builders (buildHeuristicReview /
-/// buildResumeAnalysisFromResumeData) so KeywordAnalysisEngine can return
-/// the same unified models the AI engine returns, without touching any
-/// of the original matching math.
+/// Static keyword-matching + scoring helpers, used by both engines and
+/// by the results screens. Role data comes ONLY from JobRoleService,
+/// which loads assets/job_roles.json — single source of truth.
 class AnalysisService {
   static double calculateMatch(
       List<String> candidateSkills, List<String> requiredSkills) {
@@ -43,14 +41,14 @@ class AnalysisService {
 
   static Map<String, double> getAllRoleMatches(List<String> skills) {
     return {
-      for (final entry in JobRoles.roles.entries)
+      for (final entry in JobRoleService.instance.roleSkillMap.entries)
         entry.key: calculateMatch(skills, entry.value)
     };
   }
 
   static List<String> getMissingSkills(
       List<String> candidateSkills, String jobRole) {
-    final required = JobRoles.roles[jobRole] ?? [];
+    final required = JobRoleService.instance.skillsFor(jobRole);
     final candidate = candidateSkills.map((s) => s.toLowerCase()).toSet();
     return required.where((s) => !candidate.contains(s.toLowerCase())).toList();
   }
@@ -80,15 +78,11 @@ class AnalysisService {
     return 'Shows strong skills in ${matched.join(', ')}.';
   }
 
-  /// Builds a lightweight, deterministic "review" for free-tier users so
-  /// the results screen can show the same sections both tiers, without
-  /// ever calling the network.
-  ///
-  /// [premiumFailed] should be true when this is being called as a
-  /// FALLBACK after a Premium (AI) call failed — as opposed to a user
-  /// who is simply on the Free tier by choice. This lets the UI show an
-  /// accurate "AI is temporarily unavailable" message instead of a
-  /// misleading "upgrade to Premium" message to a paying user.
+  /// Builds a lightweight, deterministic "review" so the results screen
+  /// can show the same sections regardless of tier/outcome, without
+  /// calling the network. `premiumFailed` lets the UI distinguish
+  /// "you're on Free tier" from "Premium AI call failed, here's a
+  /// fallback" without adding a second model class.
   static ResumeReview buildHeuristicReview(
     ResumeAnalysis analysis, {
     bool premiumFailed = false,
@@ -101,9 +95,18 @@ class AnalysisService {
       analysis.allSkills,
     );
 
-    final unavailableReason = premiumFailed
-        ? 'Premium AI is temporarily unavailable right now — showing free-tier analysis instead. Please try again shortly.'
-        : null;
+    final summaryNote = premiumFailed
+        ? 'AI is temporarily unavailable — showing a fallback summary.'
+        : 'Resume summary unavailable in free tier. Upgrade to Premium for an AI-written summary.';
+    final grammarNote = premiumFailed
+        ? 'AI is temporarily unavailable — grammar review could not be generated.'
+        : 'Grammar review is a Premium feature. Upgrade to unlock AI-powered writing feedback.';
+    final careerNote = premiumFailed
+        ? 'AI is temporarily unavailable — career advice could not be generated.'
+        : 'Personalized career advice is a Premium feature. Upgrade to unlock AI-powered guidance.';
+    final projectNote = premiumFailed
+        ? 'AI is temporarily unavailable — project evaluation could not be generated.'
+        : 'Detailed project evaluation is a Premium feature.';
 
     return ResumeReview(
       ats: ATSResult(
@@ -116,17 +119,12 @@ class AnalysisService {
         formattingIssues: const [],
         keywordSuggestions: const [],
       ),
-      resumeSummary: analysis.summary.isNotEmpty
-          ? analysis.summary
-          : (unavailableReason ??
-              'Resume summary unavailable in free tier. Upgrade to Premium for an AI-written summary.'),
-      grammarReview: unavailableReason ??
-          'Grammar review is a Premium feature. Upgrade to unlock AI-powered writing feedback.',
-      careerAdvice: unavailableReason ??
-          'Personalized career advice is a Premium feature. Upgrade to unlock AI-powered guidance.',
+      resumeSummary:
+          analysis.summary.isNotEmpty ? analysis.summary : summaryNote,
+      grammarReview: grammarNote,
+      careerAdvice: careerNote,
       interviewReadiness: '${readiness.toStringAsFixed(0)}%',
-      projectEvaluation: unavailableReason ??
-          'Detailed project evaluation is a Premium feature.',
+      projectEvaluation: projectNote,
       strengths: analysis.strengths,
       weaknesses: analysis.weaknesses,
       improvementSuggestions: const [],
