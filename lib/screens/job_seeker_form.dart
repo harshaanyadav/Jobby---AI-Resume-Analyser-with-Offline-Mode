@@ -271,16 +271,42 @@ class _JobSeekerFormScreenState extends State<JobSeekerFormScreen> {
 
   Widget _buildDropdown() {
     return DropdownButtonFormField<String>(
-      initialValue: _selectedRole.isEmpty ? null : _selectedRole,
+      isExpanded: true,
+      value: _selectedRole.isEmpty ? null : _selectedRole,
       decoration: InputDecoration(
         labelText: 'Target Job Role',
         prefixIcon: const Icon(Icons.work, color: AppTheme.green),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
       ),
-      items: JobRoleService.instance.roleNames
-          .map((r) => DropdownMenuItem(value: r, child: Text(r)))
-          .toList(),
-      onChanged: (v) => setState(() => _selectedRole = v!),
+      selectedItemBuilder: (BuildContext context) {
+        return JobRoleService.instance.roleNames.map((role) {
+          return Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              role,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          );
+        }).toList();
+      },
+      items: JobRoleService.instance.roleNames.map((role) {
+        return DropdownMenuItem<String>(
+          value: role,
+          child: Text(
+            role,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        );
+      }).toList(),
+      onChanged: (value) {
+        if (value != null) {
+          setState(() => _selectedRole = value);
+        }
+      },
     );
   }
 
